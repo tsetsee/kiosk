@@ -13,7 +13,7 @@ use Monolog\Logger;
 
 class STGW
 {
-    const URL = 'https://27.123.214.138:8060/stgw';
+    const URL = 'https://27.123.214.138:8050/stgw';
 
     const USERNAME = 'ict_expo_2017';
     const PASSWORD = 'ict_expo_!#2017';

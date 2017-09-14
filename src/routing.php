@@ -277,7 +277,7 @@ SQL
 
             $stmt = $app['db']->prepare(<<<SQL
               UPDATE superprize
-              SET winner_isdn=:isdn, used_at=:now
+              SET winner_isdn=:isdn, used_at=:now, status='give'
               WHERE id=:id
 SQL
             );
@@ -289,6 +289,8 @@ SQL
             $stmt->execute();
 
             $arr['name'] = $row['name'];
+            $arr['id'] = $row['id'];
+            $arr['isSuper'] = true;
         } else {
 
             $stmt = $app['db']->prepare(<<<SQL
@@ -316,7 +318,7 @@ SQL
 
             $stmt = $app['db']->prepare(<<<SQL
               UPDATE prize 
-              SET winner_isdn=:isdn, used_at=:now 
+              SET winner_isdn=:isdn, used_at=:now, status='give'
               WHERE id=:id
 SQL
             );
@@ -328,10 +330,72 @@ SQL
             $stmt->execute();
 
             $arr['name'] = $row['name'];
+            $arr['id'] = $row['id'];
+            $arr['isSuper'] = true;
         }
     } catch (\Exception $e) {
         $arr['status'] = 'fail';
     }
 
     return $app->json($arr);
+});
+
+
+$app->post('/checkoutPrize', function (Request $request) use ($app) {
+    $id = $request->get('id');
+    $isSuper = $request->get('isSuper');
+    $status = 'ok';
+
+    $tableName = $isSuper ? 'superprize' : 'prize';
+
+    /**@var PDOStatement $stmt */
+    $stmt = $app['db']->prepare(<<<SQL
+      SELECT * FROM $tableName 
+      WHERE
+        id=:id
+      LIMIT 1
+SQL
+    );
+    $stmt->bindValue('id', $id);
+
+    $stmt->execute();
+
+    $prizes = $stmt->fetchAll();
+
+    if(count($prizes) > 0) {
+        $row = $prizes[0];
+        $msisdn = $row['winner_isdn'];
+
+        $packageId = null;
+        switch($row['name']) {
+            case 'data1':
+                $packageId = 'PRE_1DAY_600MB';
+                break;
+            case 'data3':
+                $packageId = 'PRE_3DAY_1.5GB';
+                break;
+            case 'data30':
+                $packageId = 'UNLIMITED_30DAY';
+                break;
+        }
+
+        if($packageId) {
+            $stgw = new \API\STGW\STGW($app['monolog']);
+            $response = $stgw->giveICTDataPackage($msisdn, $packageId);
+        }
+
+        $stmt = $app['db']->prepare(<<<SQL
+      UPDATE $tableName 
+      SET status=:status
+      WHERE
+        id=:id
+SQL
+        );
+        $stmt->bindValue('id', $id);
+        $stmt->bindValue('status', $status);
+
+        $stmt->execute();
+    }
+
+    return $status;
 });
