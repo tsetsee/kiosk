@@ -21,3 +21,7 @@ $app->register(new Silex\Provider\DoctrineServiceProvider(), array(
 $app->register(new JDesrosiers\Silex\Provider\CorsServiceProvider(), [
     "cors.allowOrigin" => "http://kiosk.dev",
 ]);
+
+$app->register(new Silex\Provider\MonologServiceProvider(), array(
+    'monolog.logfile' => __DIR__.'/../log/development.log',
+));

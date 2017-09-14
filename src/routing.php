@@ -5,16 +5,198 @@
  * Date: 9/13/17
  * Time: 4:23 PM
  */
+
 use \Symfony\Component\HttpFoundation\Request;
 
-$app->get('/hi',function() use($app) {
-    $kiosks = $app['db']->fetchAll('SELECT * FROM prize');
+require __DIR__ . '/API/STGW/STGW.php';
 
-    var_dump($kiosks);
-    return 'Hello ';
+$app->get('/test', function () use ($app) {
+    $stgw = new \API\STGW\STGW($app['monolog']);
+    $response = $stgw->giveICTDataPackage('94094096', 'PRE_3DAY_1.5GB');
+
+    var_dump($response);
+    return "";
 });
 
-$app->post('/getPrizeCount', function() use($app) {
+$app->get('/generate', function (Request $request) use ($app) {
+    /**@var PDOStatement $stmt */
+    $stmt = $app['db']->prepare(<<<SQL
+      DELETE FROM prize;
+      ALTER TABLE prize AUTO_INCREMENT = 1;
+      DELETE FROM superprize;
+      ALTER TABLE superprize AUTO_INCREMENT = 1
+SQL
+    );
+
+    $stmt->execute();
+
+    $timeTable = array(
+        'kiosk1' => array(
+            // 15
+            array(
+                'name' => 'lg',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-15 12:25:00'),
+            ),
+            array(
+                'name' => 'lg',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-15 13:40:00'),
+            ),
+            array(
+                'name' => 'wifi',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-15 17:15:00'),
+            ),
+            // 16
+            array(
+                'name' => 'wifi',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-16 12:55:00'),
+            ),
+            array(
+                'name' => 'lg',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-16 14:05:00'),
+            ),
+            array(
+                'name' => 'wifi',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-16 17:00:00'),
+            ),
+            // 17
+            array(
+                'name' => 'wifi',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-17 11:00:00'),
+            ),
+            array(
+                'name' => 'lg',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-17 13:50:00'),
+            ),
+            array(
+                'name' => 'lg',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-17 15:40:00'),
+            ),
+        ),
+        'kiosk2' => array(
+            // 15
+            array(
+                'name' => 'wifi',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-15 13:10:00'),
+            ),
+            array(
+                'name' => 'wifi',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-15 15:05:00'),
+            ),
+            array(
+                'name' => 'lg',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-15 16:35:00'),
+            ),
+            // 16
+            array(
+                'name' => 'lg',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-16 11:35:00'),
+            ),
+            array(
+                'name' => 'wifi',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-16 15:10:00'),
+            ),
+            array(
+                'name' => 'lg',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-16 16:00:00'),
+            ),
+            // 17
+            array(
+                'name' => 'lg',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-17 11:55:00'),
+            ),
+            array(
+                'name' => 'wifi',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-17 12:45:00'),
+            ),
+            array(
+                'name' => 'lg',
+                'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-17 14:30:00'),
+            ),
+        ),
+    );
+
+    $badget = array(
+        '14' => array(
+            'data1' => 300,
+            'cardcase' => 150,
+            'data3' => 75,
+            'data30' => 50,
+        ),
+        '15' => array(
+            'data1' => 300,
+            'cardcase' => 150,
+            'data3' => 75,
+            'data30' => 50,
+        ),
+        '16' => array(
+            'data1' => 400,
+            'cardcase' => 200,
+            'data3' => 100,
+            'data30' => 50,
+        ),
+        '17' => array(
+            'data1' => 300,
+            'cardcase' => 150,
+            'data3' => 75,
+            'data30' => 50,
+        ),
+    );
+
+    $prizeList = array(
+        '14' => array(),
+        '15' => array(),
+        '16' => array(),
+        '17' => array(),
+    );
+
+    foreach($badget as $day => $prizes) {
+        foreach($prizes as $name => $too) {
+            for($i = 1; $i <= $too; $i++) {
+                $prizeList[$day][] = array(
+                    'name' => $name,
+                    'time' => \DateTime::createFromFormat('Y-m-d H:i:s', '2017-09-'.$day.' 06:00:00')
+                );
+            }
+        }
+        shuffle($prizeList[$day]);
+    }
+
+    $kiosk = $request->get('kiosk');
+
+
+
+    foreach($timeTable['kiosk'.$kiosk] as $row) {
+        $stmt = $app['db']->prepare(<<<SQL
+      INSERT INTO superprize(name,active_at,status) VALUES(:name, :time, :status)
+SQL
+        );
+        $stmt->bindValue('name', $row['name']);
+        $stmt->bindValue('time', $row['time'], 'datetime');
+        $stmt->bindValue('status', 'ready');
+
+        $stmt->execute();
+    }
+
+
+    foreach($prizeList as $dayPrize) {
+        foreach($dayPrize as $row) {
+            $stmt = $app['db']->prepare(<<<SQL
+      INSERT INTO prize(name,active_at,status) VALUES(:name, :time, :status)
+SQL
+            );
+            $stmt->bindValue('name', $row['name']);
+            $stmt->bindValue('time', $row['time'], 'datetime');
+            $stmt->bindValue('status', 'ready');
+
+            $stmt->execute();
+        }
+    }
+
+
+    return "ok";
+});
+
+$app->post('/getPrizeCount', function () use ($app) {
     $arr = array(
         'status' => 'OK',
         'count' => null,
@@ -23,7 +205,7 @@ $app->post('/getPrizeCount', function() use($app) {
     $now = new \DateTime();
 
     $sdate = clone $now;
-    $sdate->setTime(0,0,0);
+    $sdate->setTime(0, 0, 0);
 
     $edate = clone $sdate;
     $edate->modify('+1 day');
@@ -35,7 +217,7 @@ $app->post('/getPrizeCount', function() use($app) {
         AND active_at >= :sdate
         AND active_at < :edate
 SQL
-);
+    );
     $stmt->bindValue('sdate', $sdate, 'datetime');
     $stmt->bindValue('edate', $edate, 'datetime');
 
@@ -48,7 +230,7 @@ SQL
     return $app->json($arr);
 });
 
-$app->post('/getPrize', function(Request $request) use($app) {
+$app->post('/getPrize', function (Request $request) use ($app) {
     $arr = array(
         'status' => 'OK',
         'name' => null
@@ -59,18 +241,19 @@ $app->post('/getPrize', function(Request $request) use($app) {
         preg_match('/^(99|95|94|85)\d{6}$/', $msisdn, $matches);
 
         if (count($matches) === 0) {
+            $arr['message'] = 'Мобикомын дугаар оруулна уу.';
             throw new \Exception();
         }
 
         $now = new \DateTime();
 
         $sdate = clone $now;
-        $sdate->setTime(0,0,0);
+        $sdate->setTime(0, 0, 0);
 
         $edate = clone $sdate;
         $edate->modify('+1 day');
 
-        /**@var PDOStatement $stmt*/
+        /**@var PDOStatement $stmt */
 
         $stmt = $app['db']->prepare(<<<SQL
         SELECT * from superprize
@@ -89,7 +272,7 @@ SQL
 
         $superPrize = $stmt->fetchAll();
 
-        if(count($superPrize) > 0) {
+        if (count($superPrize) > 0) {
             $row = $superPrize[0];
 
             $stmt = $app['db']->prepare(<<<SQL
@@ -106,8 +289,7 @@ SQL
             $stmt->execute();
 
             $arr['name'] = $row['name'];
-        }
-        else {
+        } else {
 
             $stmt = $app['db']->prepare(<<<SQL
       SELECT * FROM prize 
@@ -125,7 +307,8 @@ SQL
 
             $prizes = $stmt->fetchAll();
 
-            if(count($prizes) === 0) {
+            if (count($prizes) === 0) {
+                $arr['message'] = 'Бэлэг дууссан байна.';
                 throw new \Exception();
             }
 
@@ -146,11 +329,8 @@ SQL
 
             $arr['name'] = $row['name'];
         }
-    }
-    catch(\Exception $e) {
-        $arr = array(
-            'status' => 'fail',
-        );
+    } catch (\Exception $e) {
+        $arr['status'] = 'fail';
     }
 
     return $app->json($arr);
